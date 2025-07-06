@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -5,13 +6,23 @@ using UnityEngine;
 public class RoShape : MonoBehaviour
 {
     [SerializeField] int[] numbers;
+    [SerializeField] RoShape[] linkedShapes;
     [SerializeField] float radius;
+    [SerializeField] int step = 1;
     [SerializeField] GameObject TextPrefab;
     [SerializeField] float _rotateSpeed = 180f;
+    public int value
+    {
+        get
+        {
+            return numbers[currentNumberIndex];
+        }
+    }
     public int currentNumberIndex;
     private GameObject _shapeMesh;
     private List<Vector3> _edgeVertices;
     private bool _isRotating = false;
+    private bool _isLinkedRotat = false;
 
     private float targetAngle;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -24,6 +35,7 @@ public class RoShape : MonoBehaviour
         }
 
         CreateShape();
+        CreateOutline();
         CreateNumberText();
         InitialShapeRotate();
 
@@ -42,16 +54,7 @@ public class RoShape : MonoBehaviour
             if (Mathf.Approximately(angle, targetAngle))
             {
                 _isRotating = false; // 旋转完成
-            }
-        }
-        else if (Input.GetMouseButtonDown(0))
-        {
-            Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            Collider2D hit = Physics2D.OverlapPoint(mousePos);
-
-            if (hit != null && hit.transform == transform)
-            {
-                RotateShape();
+                if (!_isLinkedRotat) GameManager.Instance.OnRotateFinished();
             }
         }
     }
@@ -88,14 +91,35 @@ public class RoShape : MonoBehaviour
         }
     }
 
+    void CreateOutline()
+    {
+        LineRenderer lr = _shapeMesh.GetComponent<LineRenderer>();
+        lr.useWorldSpace = false;
+        lr.loop = true;
+        lr.positionCount = _edgeVertices.Count;
+        lr.SetPositions(_edgeVertices.ToArray());
+        lr.startWidth = 0.05f;
+        lr.endWidth = 0.05f;
+    }
+
     void InitialShapeRotate()
     {
         _shapeMesh.transform.Rotate(0, 0, -(360 / numbers.Length));
     }
 
-    void RotateShape()
+    public void RotateShape(bool rotateLinked = false)
     {
-        targetAngle = _shapeMesh.transform.eulerAngles.z + -(360 / numbers.Length);
+        _isLinkedRotat = true;
+        targetAngle = _shapeMesh.transform.eulerAngles.z + -(360 / numbers.Length * step);
         _isRotating = true;
+        currentNumberIndex = (currentNumberIndex + step) % numbers.Length;
+        if (rotateLinked)
+        {
+            _isLinkedRotat = false;
+            foreach (RoShape shape in linkedShapes)
+            {
+                shape.RotateShape();
+            }
+        }
     }
 }
